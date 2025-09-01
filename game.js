@@ -1,11 +1,11 @@
 // =============================================================================
-// Pocket Karts Online - VERZE SE JMENOVKAMI
+// Pocket Karts Online - OPRAVENÁ VERZE SE JMENOVKAMI
 // Autor: AI asistent
-// Vylepšení: Přidány jmenovky hráčů nad každou motokáru.
+// Oprava: Odstraněn chybný text na konci souboru, který způsoboval pád serveru.
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// ČÁST 1: SERVEROVÁ LOGIKA (Backend) - beze změny
+// ČÁST 1: SERVEROVÁ LOGIKA (Backend)
 // -----------------------------------------------------------------------------
 const express = require('express');
 const http = require('http');
@@ -131,9 +131,9 @@ function endGame(winner) {
 }
 
 function resetGame() {
-    const oldPlayersData = Object.values(gameState.players).map(p => ({ id: p.id, name: p.name, color: p.color }));
+    const oldPlayersData = Object.values(gameState.players).map(p => ({ id: p.id, name: p.name }));
     gameState = createInitialGameState();
-    oldPlayersData.forEach(p => addPlayerToGame(p.id, p.name, p.color));
+    oldPlayersData.forEach(p => addPlayerToGame(p.id, p.name));
     if (Object.keys(gameState.players).length >= 2) startGame();
 }
 
@@ -170,13 +170,13 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server běží na http://localhost:${PORT}`));
 
 // -----------------------------------------------------------------------------
-// ČÁST 2: HERNÍ STRÁNKA (Frontend) - UPRAVENÁ VERZE
+// ČÁST 2: HERNÍ STRÁNKA (Frontend)
 // -----------------------------------------------------------------------------
 const HTML_CONTENT = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pocket Karts - Se jmenovkami</title>
+    <title>Pocket Karts - Opraveno</title>
     <style> body { margin: 0; background-color: #2c3e50; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; } canvas { display: block; } #login-container { text-align: center; } h1 { font-size: 48px; color: #ecf0f1; } input { font-size: 20px; padding: 10px; border-radius: 5px; border: none; text-align: center; } button { font-size: 20px; padding: 10px 20px; border-radius: 5px; border: none; background-color: #2ecc71; color: white; cursor: pointer; margin-top: 10px; } #game-container { display: none; } </style>
 </head>
 <body>
@@ -186,47 +186,35 @@ const HTML_CONTENT = `
     <script src="/socket.io/socket.io.js"></script>
     <script>
         class GameScene extends Phaser.Scene {
-            // Jmenovky se budou ukládat do this.labels
             constructor() { super({ key: 'GameScene' }); this.karts = {}; this.labels = {}; }
-
             preload() { this.load.image('kart', '/car.png'); }
-
             create() {
                 this.drawTrack();
                 this.cursors = this.input.keyboard.createCursorKeys();
                 this.socket = window.socket;
                 this.hudText = this.add.text(10, 10, 'Připojování...', { fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
                 this.statusText = this.add.text(400, 300, '', { fontSize: '64px', fill: '#fff', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
-
                 this.socket.on('gameUpdate', (state) => this.updateGameState(state));
             }
-
             update() {
                 this.socket.emit('playerInput', { left: this.cursors.left.isDown, right: this.cursors.right.isDown, up: this.cursors.up.isDown });
             }
-
             updateGameState(state) {
                 this.updateHud(state);
                 if (state.status === 'countdown') this.statusText.setText(state.countdown > 0 ? state.countdown : 'GO!');
                 else if (state.status === 'finished') this.statusText.setText(\`Vítěz: \${state.winner}!\`);
                 else this.statusText.setText('');
-
                 for (const id in state.players) {
                     const playerData = state.players[id];
                     if (!this.karts[id]) this.addKart(playerData);
-                    
                     const kart = this.karts[id];
-                    const label = this.labels[id]; // << NOVÉ: Získáme jmenovku
-                    
-                    // Aktualizujeme pozici jak auta, tak jmenovky
+                    const label = this.labels[id];
                     kart.setPosition(playerData.x, playerData.y);
                     kart.setRotation(playerData.angle);
-                    label.setPosition(playerData.x, playerData.y - 30); // << NOVÉ: Pozice jmenovky je mírně nad autem
+                    label.setPosition(playerData.x, playerData.y - 30);
                 }
-                
                 for (const id in this.karts) { if (!state.players[id]) this.removeKart(id); }
             }
-
             updateHud(state) {
                 let hudContent = \`Kola: ${LAPS_TO_WIN}\\n\\n\`;
                 state.sortedPlayerIds.forEach((id, index) => {
@@ -235,23 +223,17 @@ const HTML_CONTENT = `
                 });
                 this.hudText.setText(hudContent);
             }
-
             addKart(p) {
-                // Přidání auta
                 this.karts[p.id] = this.add.sprite(p.x, p.y, 'kart').setDisplaySize(45, 25);
-                
-                // << NOVÉ: Přidání jmenovky (Phaser.Text objekt)
                 const nameStyle = { fontSize: '14px', fill: '#fff', stroke: '#000000', strokeThickness: 3 };
                 this.labels[p.id] = this.add.text(p.x, p.y - 30, p.name, nameStyle).setOrigin(0.5);
             }
-
             removeKart(id) {
                 if (this.karts[id]) this.karts[id].destroy();
-                if (this.labels[id]) this.labels[id].destroy(); // << NOVÉ: Smazání jmenovky
+                if (this.labels[id]) this.labels[id].destroy();
                 delete this.karts[id]; 
-                delete this.labels[id]; // << NOVÉ: Smazání reference na jmenovku
+                delete this.labels[id];
             }
-
             drawTrack() {
                 const g = this.add.graphics(); g.fillStyle(0x32a852); g.fillRect(0,0,800,600);
                 g.fillStyle(0xbbbbbb,1);
@@ -287,20 +269,3 @@ const HTML_CONTENT = `
 </body>
 </html>
 `;
-
----
-
-### **Co dělat dál?**
-
-1.  **Nahraď kód:** Otevři svůj projekt a kompletně přepiš soubor `game.js` tímto novým obsahem.
-2.  **Testuj lokálně (volitelné, ale doporučené):**
-    *   Otevři terminál ve složce projektu.
-    *   Spusť `node game.js`.
-    *   Otevři `http://localhost:3000` ve dvou oknech prohlížeče, zadej různá jména a ověř, že se jmenovky správně zobrazují nad oběma auty a pohybují se s nimi.
-3.  **Nahraj na Render:**
-    *   **Přidej změny do Gitu:** `git add game.js`
-    *   **Vytvoř commit:** `git commit -m "Add player name tags above karts"`
-    *   **Nahraj na GitHub:** `git push`
-    *   V dashboardu na **render.com** klikni na **Manual Deploy -> Deploy latest commit**.
-
-A je to! Po nasazení se bude každému hráči nad jeho autem zobrazovat jméno, které si zvolil při vstupu do hry.
